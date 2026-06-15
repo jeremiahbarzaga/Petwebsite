@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, FormEvent } from "react";
 import Image from "next/image";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import gsap from "gsap";
@@ -116,6 +116,8 @@ const fadeUp = {
 export default function PetGroomingLanding() {
   const [active, setActive] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const heroRef = useRef<HTMLElement | null>(null);
   const cursorX = useMotionValue(0);
   const cursorY = useMotionValue(0);
@@ -185,6 +187,33 @@ export default function PetGroomingLanding() {
     window.addEventListener("mousemove", onMove);
     return () => window.removeEventListener("mousemove", onMove);
   }, [cursorX, cursorY]);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setStatusMessage(null);
+    setSending(true);
+    try {
+      const form = new FormData(e.currentTarget as HTMLFormElement);
+      const payload: Record<string, any> = Object.fromEntries(form.entries());
+
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setStatusMessage("Request sent — we will be in touch shortly.");
+      } else {
+        setStatusMessage(data?.error || "Failed to send request.");
+      }
+    } catch (err) {
+      setStatusMessage(String(err));
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <main className="min-h-screen overflow-hidden">
@@ -461,7 +490,12 @@ export default function PetGroomingLanding() {
               </p>
             </div>
           </div>
-          <form data-reveal className="grid gap-4 rounded-[1.5rem] bg-white p-5 text-[#1f261f] sm:grid-cols-2 sm:p-7">
+          <form
+            data-reveal
+            onSubmit={handleSubmit}
+            noValidate
+            className="grid gap-4 rounded-[1.5rem] bg-white p-5 text-[#1f261f] sm:grid-cols-2 sm:p-7"
+          >
             <label className="grid gap-2 text-sm font-semibold">
               Your name
               <input className="rounded-2xl border border-[#e1d6c7] bg-[#fffdf8] px-4 py-3" name="name" autoComplete="name" />
@@ -487,12 +521,17 @@ export default function PetGroomingLanding() {
               <textarea className="min-h-28 rounded-2xl border border-[#e1d6c7] bg-[#fffdf8] px-4 py-3" name="notes" />
             </label>
             <button
-              type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#314a36] px-6 py-4 font-semibold text-white transition hover:-translate-y-1 hover:bg-[#263c2b] sm:col-span-2"
+              type="submit"
+              disabled={sending}
+              aria-busy={sending}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#314a36] px-6 py-4 font-semibold text-white transition hover:-translate-y-1 hover:bg-[#263c2b] disabled:opacity-60 sm:col-span-2"
             >
-              Request Appointment
+              {sending ? "Sending..." : "Request Appointment"}
               <ArrowRight size={18} aria-hidden="true" />
             </button>
+            {statusMessage ? (
+              <p className="sm:col-span-2 mt-1 text-sm text-[#314a36]">{statusMessage}</p>
+            ) : null}
           </form>
         </div>
       </section>
